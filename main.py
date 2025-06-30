@@ -3,30 +3,12 @@ import os
 from dotenv import load_dotenv
 from telethon import TelegramClient, events
 from utils.GetLogger import logger
-from data.dados_gerais import DadosGerais
+from data.DadosGeraisDS import DadosGerais
+from utils.Iniciar import inicializar
 
 
 # --- 1. CONFIGURAÇÃO INICIAL ---
-
-# Carrega as variáveis de ambiente do arquivo .env
-load_dotenv()
-
-# Credenciais para o Cliente (sua conta de usuário)
-api_id = int(os.getenv("API_ID"))
-api_hash = os.getenv("API_HASH")
-
-# Credenciais para o Bot (que vai te notificar)
-tele_token = os.getenv("TELEGRAM_TOKEN")
-meu_chat_id = int(os.getenv("MEU_CHAT_ID"))
-
-# Validação das variáveis
-if not all([api_id, api_hash, tele_token, meu_chat_id]):
-    raise ValueError("Uma ou mais variáveis de ambiente não foram definidas. Verifique seu arquivo .env")
-
-# Cria uma sessão para o Telethon para não precisar logar toda vez
-# O arquivo 'anon.session' será criado na primeira execução
-client = TelegramClient('anon', api_id, api_hash)
-
+client, bot, id_chat_usuario = inicializar()
 
 # --- 2. LÓGICA DE MONITORAMENTO ---
 
@@ -38,7 +20,12 @@ async def handler_nova_mensagem(event):
     nova mensagem é postada em um dos 'canais_alvo'.
     """
     mensagem = event.message
-    canal_username = event.chat.username if event.chat else 'Desconhecido'
+    # Garante que temos o username para criar o link
+    if not hasattr(event.chat, 'username') or not event.chat.username:
+        logger.warning(f"Mensagem recebida de um canal sem username. Não é possível criar link.")
+        return
+
+    canal_username = event.chat.username
     
     # Pega o texto da mensagem. Pode estar em .text ou em .caption (para mídias)
     texto_da_mensagem = (mensagem.text or mensagem.caption or "").lower()
@@ -52,17 +39,44 @@ async def handler_nova_mensagem(event):
     # Procura cada palavra-chave no texto da mensagem
     achou = False
     for palavra in DadosGerais.palavras_chave:
-        if palavra in texto_da_mensagem:
-            logger.info(f"🚨 **ALERTA DE PROMOÇÃO!** 🚨 -> 🔎 **Palavra-chave encontrada:** `{palavra}` -- 📢 **Canal:** `@{canal_username}`\n")
+        if palavra.lower() in texto_da_mensagem:
+            logger.info(f"🚨 **ALERTA!** 🚨 -> 🔎 Palavra-chave encontrada: `{palavra}` -- 📢 Canal: `@{canal_username}`")
             achou = True
+            
+            # --- Início: Lógica de envio da notificação ---
+
+            # 1. Cria o link direto para a mensagem original
+            link_mensagem = f"https://t.me/{canal_username}/{mensagem.id}"
+            
+            # 2. Monta o texto da notificação
+            texto_notificacao = (
+                f"✅ *Encontrou a palavra chave!*\n\n"
+                f"🔑 *Palavra:* `{palavra}`\n"
+                f"📢 *Canal:* @{canal_username}\n\n"
+                f"🔗 [Clique aqui para ver a mensagem]({link_mensagem})"
+            )
+
+            # 3. Envia a mensagem para o seu chat pessoal usando o bot
+            try:
+                bot.send_message(id_chat_usuario, texto_notificacao, parse_mode='Markdown')
+                logger.info(f"Notificação enviada com sucesso para o seu Telegram.")
+            except Exception as e:
+                logger.error(f"Falha ao enviar notificação para o Telegram: {e}")
+
+            # --- Fim: Lógica de envio da notificação ---
             break
 
     if not achou:
-        logger.debug(f"😔 Nenhuma palavra-chave encontrada em @{canal_username}\n")
+        # Apenas loga no console, não envia mensagem no Telegram para evitar spam.
+        # Veja a explicação abaixo.
+        logger.debug(f"Nenhuma palavra-chave encontrada em @{canal_username}. Mensagem: {texto_da_mensagem.replace('\n', ' ')}\n")
 
 
 # --- 3. EXECUÇÃO ---
 async def main():
+    logger.info("Iniciando o bot de notificações...")
+    # Teste inicial para garantir que o bot consegue enviar mensagem
+    bot.send_message(id_chat_usuario, "🤖 Bot de monitoramento iniciado e pronto para enviar alertas!")
 
     logger.info("Iniciando o cliente para monitorar os canais...")
     await client.start()
