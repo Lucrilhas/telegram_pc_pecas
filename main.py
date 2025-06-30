@@ -28,7 +28,7 @@ if not all([api_id, api_hash, tele_token, meu_chat_id]):
 client = TelegramClient('anon', api_id, api_hash)
 
 
-# --- 3. LÓGICA DE MONITORAMENTO (O CORAÇÃO DO SCRIPT) ---
+# --- 2. LÓGICA DE MONITORAMENTO ---
 
 # Este decorador do Telethon diz: "quando uma nova mensagem chegar..."
 @client.on(events.NewMessage(chats=DadosGerais.canais_alvo))
@@ -53,19 +53,15 @@ async def handler_nova_mensagem(event):
     achou = False
     for palavra in DadosGerais.palavras_chave:
         if palavra in texto_da_mensagem:
-            print(f"!!! PALAVRA-CHAVE ENCONTRADA: '{palavra}' em @{canal_username} !!!")
-
-            # Formata a mensagem de alerta para enviar a você
-            texto_alerta = f"🚨 **ALERTA DE PROMOÇÃO!** 🚨 -> 🔎 **Palavra-chave encontrada:** `{palavra}` -- 📢 **Canal:** `@{canal_username}`\n"
-            logger.info(texto_alerta)
+            logger.info(f"🚨 **ALERTA DE PROMOÇÃO!** 🚨 -> 🔎 **Palavra-chave encontrada:** `{palavra}` -- 📢 **Canal:** `@{canal_username}`\n")
             achou = True
             break
 
     if not achou:
-        logger.debug(f"😔 Nenhuma palavra-chave encontrada. em {canal_username}\n")
+        logger.debug(f"😔 Nenhuma palavra-chave encontrada em @{canal_username}\n")
 
 
-# --- 4. EXECUÇÃO ---
+# --- 3. EXECUÇÃO ---
 async def main():
 
     logger.info("Iniciando o cliente para monitorar os canais...")
