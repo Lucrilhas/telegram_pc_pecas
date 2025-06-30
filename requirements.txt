@@ -2,3 +2,7 @@ telebot
 dotenv
 telethon
 pyTelegramBotAPI
+colorama
+numpy
+pandas
+Unidecode
