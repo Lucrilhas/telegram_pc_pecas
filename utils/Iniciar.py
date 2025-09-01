@@ -13,7 +13,7 @@ def inicializar():
 
     # Credenciais para o Bot (que vai te notificar)
     tele_token = getenv("TELEGRAM_TOKEN")
-    id_chat_usuario = int(getenv("id_chat_usuario"))
+    id_chat_usuario = int(getenv("CHAT_ID"))
 
     # Validação das variáveis
     if not all([api_id, api_hash, tele_token, id_chat_usuario]):
